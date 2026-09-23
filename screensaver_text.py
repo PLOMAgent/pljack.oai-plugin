@@ -74,6 +74,9 @@ def perform_uninstall() -> None:
     omarchy = shutil.which("omarchy")
     if not omarchy:
         raise OSError("omarchy command not found")
+    config_dir = Path.home() / ".config/omarchy"
+    restore_default(config_dir / "screensaver-text.json", config_dir / "shell.json",
+                    preview=False, restart=False)
     subprocess.run([omarchy, "plugin", "remove", "pljack.oai-plugin", "--yes"], check=True)
     subprocess.run([omarchy, "restart", "shell"], check=True)
 
@@ -112,15 +115,23 @@ def save(text: str, config: Path, branding: Path, shell_config: Path,
         subprocess.run(["omarchy-launch-screensaver", "force"], check=True)
 
 
-def restore_default(config: Path, shell_config: Path) -> None:
-    # Restore the stock logo, then reset only the screensaver idle timeout.
-    subprocess.run(["omarchy", "branding", "screensaver", "reset"], check=True)
+def restore_default(config: Path, shell_config: Path, *, preview: bool = True,
+                    restart: bool = True) -> None:
+    # The panel's Restore Default previews the stock logo. Uninstall copies
+    # the same packaged artwork without launching a screensaver on removal.
+    if preview:
+        subprocess.run(["omarchy", "branding", "screensaver", "reset"], check=True)
+    else:
+        logo = Path(os.environ.get("OMARCHY_PATH", "/usr/share/omarchy")) / "logo.txt"
+        branding = config.parent / "branding/screensaver.txt"
+        branding.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(logo, branding)
     previous_seconds, _ = read_timeouts(shell_config)
     if previous_seconds != 150:
         update_timeout(shell_config, 150)
     # Old figlet input no longer represents the logo; do not prefill it on reopen.
     config.unlink(missing_ok=True)
-    if previous_seconds != 150:
+    if previous_seconds != 150 and restart:
         schedule_shell_restart()
 
 

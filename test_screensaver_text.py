@@ -107,14 +107,45 @@ class ScreensaverTextTests(unittest.TestCase):
         self.assertTrue(self.shell.exists())
         self.assertEqual(json.loads(self.shell.read_text()), self.original)
 
-    def test_uninstall_removes_then_restarts_shell(self):
-        with patch.object(module.subprocess, "run") as run:
+    def test_uninstall_restores_defaults_then_removes_and_restarts_shell(self):
+        config_dir = self.base / ".config/omarchy"
+        config_dir.mkdir(parents=True)
+        self.config = config_dir / "screensaver-text.json"
+        self.branding = config_dir / "branding/screensaver.txt"
+        self.shell = config_dir / "shell.json"
+        logo = self.base / "logo.txt"
+        logo.write_bytes(b"stock logo\n")
+        self.branding.parent.mkdir()
+        self.branding.write_bytes(b"custom art\n")
+        self.config.write_text('{"text":"custom"}')
+        self.original["idle"]["screensaver"] = 60
+        self.shell.write_text(json.dumps(self.original))
+        with patch.object(module.Path, "home", return_value=self.base), \
+             patch.dict(module.os.environ, {"OMARCHY_PATH": str(self.base)}), \
+             patch.object(module.subprocess, "run") as run:
             module.perform_uninstall()
+        self.assertEqual(self.branding.read_bytes(), logo.read_bytes())
+        self.assertFalse(self.config.exists())
+        actual = json.loads(self.shell.read_text())
+        self.assertEqual(actual["idle"], {"screensaver": 150, "lock": 1200})
+        self.assertEqual(actual["bar"], self.original["bar"])
         self.assertEqual([call.args[0] for call in run.call_args_list], [
             [module.shutil.which("omarchy"), "plugin", "remove", "pljack.oai-plugin", "--yes"],
             [module.shutil.which("omarchy"), "restart", "shell"],
         ])
         self.assertTrue(all(call.kwargs.get("check") for call in run.call_args_list))
+
+    def test_uninstall_restores_logo_if_branding_folder_is_missing(self):
+        config_dir = self.base / ".config/omarchy"
+        config_dir.mkdir(parents=True)
+        (self.base / "logo.txt").write_bytes(b"stock logo\n")
+        (config_dir / "shell.json").write_text(json.dumps(self.original))
+        with patch.object(module.Path, "home", return_value=self.base), \
+             patch.dict(module.os.environ, {"OMARCHY_PATH": str(self.base)}), \
+             patch.object(module.subprocess, "run") as run:
+            module.perform_uninstall()
+        self.assertEqual((config_dir / "branding/screensaver.txt").read_bytes(), b"stock logo\n")
+        self.assertEqual(len(run.call_args_list), 2)
 
     def test_scheduled_uninstall_cli_dispatches_without_requiring_config(self):
         with patch.object(module.sys, "argv", ["screensaver_text.py", "--perform-uninstall"]), \
@@ -125,6 +156,8 @@ class ScreensaverTextTests(unittest.TestCase):
     def test_uninstall_control_requires_confirmation_and_reports_errors(self):
         panel = Path(__file__).with_name("Panel.qml").read_text()
         self.assertLess(panel.index('text: "Uninstall"'), panel.index('text: root.editText'))
+        self.assertIn('text: "Uninstall restores stock artwork and the 150-second timeout."', panel)
+        self.assertIn('text: "Reset & remove?"', panel)
         self.assertIn('onClicked: root.confirmUninstall = true', panel)
         self.assertIn('onClicked: root.scheduleUninstall()', panel)
         self.assertIn('onClicked: root.confirmUninstall = false', panel)

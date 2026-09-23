@@ -185,13 +185,23 @@ Panel {
         }
       }
 
+      Text {
+        Layout.fillWidth: true
+        visible: root.confirmUninstall
+        text: "Uninstall restores stock artwork and the 150-second timeout."
+        wrapMode: Text.WordWrap
+        color: root.contentForeground
+        font.family: root.contentFontFamily
+        font.pixelSize: 12
+      }
+
       RowLayout {
         Layout.fillWidth: true
         visible: root.confirmUninstall
         spacing: Style.space(8)
         Text {
           Layout.fillWidth: true
-          text: "Remove this plugin?"
+          text: "Reset & remove?"
           color: root.contentForeground
           font.family: root.contentFontFamily
           font.pixelSize: 13

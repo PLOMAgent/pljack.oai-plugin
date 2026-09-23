@@ -8,7 +8,7 @@ The ⱓ button opens a theme-aware panel where you can:
 - Set the automatic screensaver timeout in seconds, with a live approximate minutes conversion. The timeout must be shorter than the configured lock timeout.
 - Use **Restore Default** to restore the Omarchy artwork and a 150-second timeout.
 - Use **Cancel** to close the panel without changing settings.
-- Use **Uninstall** in the panel’s top-right corner, then **Yes, remove**, to remove this plugin through Omarchy. **Keep** cancels the removal.
+- Use **Uninstall** in the panel’s top-right corner, then **Yes, remove**, to restore stock Omarchy artwork, reset the timeout to 150 seconds, clear the saved plugin text, and remove the plugin. **Keep** cancels. Uninstall does not open a screensaver preview.
 
 When the stock artwork is active, the text field shows “Omarchy.”
 
@@ -24,7 +24,7 @@ Install from the public repository:
 omarchy plugin add https://github.com/PLOMAgent/pljack.oai-plugin.git --enable
 ```
 
-Omarchy clones the repository into `~/.config/omarchy/plugins/pljack.oai-plugin/`. If the bar button does not appear immediately, run `omarchy restart shell`. For an installation originally cloned from this repository, use `omarchy plugin update pljack.oai-plugin` for future updates. An existing manually copied installation is not a Git checkout: back it up and remove it before installing from Git (the plugin-specific text and timeout settings live outside the plugin directory). To remove the Git-installed plugin, use `omarchy plugin remove pljack.oai-plugin`.
+Omarchy clones the repository into `~/.config/omarchy/plugins/pljack.oai-plugin/`. If the bar button does not appear immediately, run `omarchy restart shell`. For an installation originally cloned from this repository, use `omarchy plugin update pljack.oai-plugin` for future updates. An existing manually copied installation is not a Git checkout: back it up and remove it before installing from Git (the plugin-specific text and timeout settings live outside the plugin directory). To remove the Git-installed plugin from the terminal, use `omarchy plugin remove pljack.oai-plugin`; unlike the panel’s Uninstall action, the CLI does not restore screensaver settings.
 
 Plugins run unsandboxed inside the Omarchy shell; review the source before enabling a repository you do not trust.
 
