@@ -19,6 +19,7 @@ Panel {
   property string secondsText: ""
   property int lockSeconds: 300
   property string errorMessage: ""
+  property bool confirmUninstall: false
   readonly property color contentForeground: bar ? bar.foreground : Color.foreground
   readonly property string contentFontFamily: bar ? bar.fontFamily : Style.font.family
 
@@ -30,6 +31,7 @@ Panel {
 
   function open() {
     errorMessage = ""
+    confirmUninstall = false
     editText = ""
     loadProcess.running = true
     timeoutProcess.running = true
@@ -40,7 +42,7 @@ Panel {
   function toggle() { if (opened) close(); else open() }
 
   function saveAndLaunch() {
-    if (saveProcess.running || restoreProcess.running) return
+    if (saveProcess.running || restoreProcess.running || uninstallProcess.running) return
     if (!editText.trim()) {
       errorMessage = "Enter some text first."
       return
@@ -64,9 +66,15 @@ Panel {
   }
 
   function restoreDefault() {
-    if (saveProcess.running || restoreProcess.running) return
+    if (saveProcess.running || restoreProcess.running || uninstallProcess.running) return
     errorMessage = ""
     restoreProcess.running = true
+  }
+
+  function scheduleUninstall() {
+    if (!confirmUninstall || saveProcess.running || restoreProcess.running || uninstallProcess.running) return
+    errorMessage = ""
+    uninstallProcess.running = true
   }
 
   Process {
@@ -117,6 +125,15 @@ Panel {
     }
   }
 
+  Process {
+    id: uninstallProcess
+    command: ["python3", Quickshell.env("HOME") + "/.config/omarchy/plugins/pljack.oai-plugin/screensaver_text.py", "--uninstall"]
+    onExited: function(exitCode) {
+      if (exitCode === 0) root.close()
+      else root.errorMessage = "Could not schedule plugin uninstall."
+    }
+  }
+
   KeyboardPanel {
     id: panel
     anchorItem: root.anchorItem
@@ -125,19 +142,100 @@ Panel {
     open: root.opened
     centerOnBar: false
     contentWidth: Style.space(420)
-    contentHeight: Style.space(329)
+    contentHeight: Style.space(root.confirmUninstall ? 379 : 329)
 
     ColumnLayout {
       anchors.fill: parent
       anchors.margins: Style.space(14)
       spacing: Style.space(12)
 
-      Text {
-        text: "Screensaver Text"
-        color: root.contentForeground
-        font.family: root.contentFontFamily
-        font.pixelSize: 16
-        font.bold: true
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: Style.space(8)
+
+        Text {
+          text: "Screensaver Text"
+          color: root.contentForeground
+          font.family: root.contentFontFamily
+          font.pixelSize: 16
+          font.bold: true
+        }
+        Item { Layout.fillWidth: true }
+        Rectangle {
+          Layout.preferredWidth: Style.space(94)
+          Layout.preferredHeight: Style.space(30)
+          visible: !root.confirmUninstall
+          radius: 4
+          color: Qt.darker(Color.popups.background, 1.15)
+          border.color: Color.accent
+          border.width: 1
+          Text {
+            anchors.centerIn: parent
+            text: "Uninstall"
+            color: root.contentForeground
+            font.family: root.contentFontFamily
+            font.pixelSize: 13
+          }
+          MouseArea {
+            anchors.fill: parent
+            enabled: !saveProcess.running && !restoreProcess.running && !uninstallProcess.running
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.confirmUninstall = true
+          }
+        }
+      }
+
+      RowLayout {
+        Layout.fillWidth: true
+        visible: root.confirmUninstall
+        spacing: Style.space(8)
+        Text {
+          Layout.fillWidth: true
+          text: "Remove this plugin?"
+          color: root.contentForeground
+          font.family: root.contentFontFamily
+          font.pixelSize: 13
+        }
+        Rectangle {
+          Layout.preferredWidth: Style.space(104)
+          Layout.preferredHeight: Style.space(30)
+          radius: 4
+          color: Color.accent
+          Text {
+            anchors.centerIn: parent
+            text: uninstallProcess.running ? "Removing..." : "Yes, remove"
+            color: Color.popups.background
+            font.family: root.contentFontFamily
+            font.pixelSize: 12
+          }
+          MouseArea {
+            anchors.fill: parent
+            enabled: !uninstallProcess.running
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.scheduleUninstall()
+          }
+        }
+        Rectangle {
+          Layout.preferredWidth: Style.space(65)
+          Layout.preferredHeight: Style.space(30)
+          radius: 4
+          color: Qt.darker(Color.popups.background, 1.15)
+          border.color: Color.accent
+          border.width: 1
+          Text {
+            anchors.centerIn: parent
+            text: "Keep"
+            color: root.contentForeground
+            font.family: root.contentFontFamily
+            font.pixelSize: 12
+          }
+          MouseArea {
+            anchors.fill: parent
+            enabled: !uninstallProcess.running
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.confirmUninstall = false
+          }
+        }
       }
 
       Rectangle {

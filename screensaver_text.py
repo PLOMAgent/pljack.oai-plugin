@@ -59,6 +59,15 @@ def schedule_shell_restart() -> None:
                     omarchy, "restart", "shell"], check=True)
 
 
+def schedule_uninstall() -> None:
+    # Removing the plugin unloads this panel. An independent service finishes
+    # the removal after the Process callback has returned.
+    omarchy = shutil.which("omarchy")
+    if not omarchy:
+        raise OSError("omarchy command not found")
+    subprocess.run(["systemd-run", "--user", "--collect", "--on-active=2s",
+                    omarchy, "plugin", "remove", "pljack.oai-plugin", "--yes"], check=True)
+
 def save(text: str, config: Path, branding: Path, shell_config: Path,
          seconds_text: str, *, launch: bool = True) -> None:
     text = text.strip()
@@ -108,7 +117,7 @@ def restore_default(config: Path, shell_config: Path) -> None:
 
 def main() -> int:
     if len(sys.argv) not in (2, 3):
-        print("Usage: screensaver_text.py TEXT SECONDS|--restore|--read-text|--read-timeouts", file=sys.stderr)
+        print("Usage: screensaver_text.py TEXT SECONDS|--restore|--read-text|--read-timeouts|--uninstall", file=sys.stderr)
         return 2
     home = Path.home()
     config_dir = home / ".config/omarchy"
@@ -123,6 +132,8 @@ def main() -> int:
         elif sys.argv[1] == "--read-timeouts" and len(sys.argv) == 2:
             screensaver, lock = read_timeouts(shell_config)
             print(json.dumps({"screensaver": screensaver, "lock": lock}))
+        elif sys.argv[1] == "--uninstall" and len(sys.argv) == 2:
+            schedule_uninstall()
         elif len(sys.argv) == 3:
             save(
                 sys.argv[1],

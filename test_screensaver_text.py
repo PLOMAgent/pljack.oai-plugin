@@ -96,6 +96,26 @@ class ScreensaverTextTests(unittest.TestCase):
                        module.shutil.which("omarchy"), "restart", "shell"], seen)
         self.assertIn(["omarchy-launch-screensaver", "force"], seen)
 
+    def test_uninstall_is_delayed_and_targets_only_this_plugin(self):
+        with patch.object(module.subprocess, "run") as run:
+            module.schedule_uninstall()
+        run.assert_called_once_with(
+            ["systemd-run", "--user", "--collect", "--on-active=2s",
+             module.shutil.which("omarchy"), "plugin", "remove", "pljack.oai-plugin", "--yes"],
+            check=True,
+        )
+        self.assertTrue(self.shell.exists())
+        self.assertEqual(json.loads(self.shell.read_text()), self.original)
+
+    def test_uninstall_control_requires_confirmation_and_reports_errors(self):
+        panel = Path(__file__).with_name("Panel.qml").read_text()
+        self.assertLess(panel.index('text: "Uninstall"'), panel.index('text: root.editText'))
+        self.assertIn('onClicked: root.confirmUninstall = true', panel)
+        self.assertIn('onClicked: root.scheduleUninstall()', panel)
+        self.assertIn('onClicked: root.confirmUninstall = false', panel)
+        self.assertIn('"--uninstall"', panel)
+        self.assertIn('root.errorMessage = "Could not schedule plugin uninstall."', panel)
+
     def test_empty_text_does_not_touch_any_files(self):
         with self.assertRaises(ValueError):
             module.save("   ", self.config, self.branding, self.shell, "240", launch=False)

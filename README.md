@@ -8,6 +8,7 @@ The ⱓ button opens a theme-aware panel where you can:
 - Set the automatic screensaver timeout in seconds, with a live approximate minutes conversion. The timeout must be shorter than the configured lock timeout.
 - Use **Restore Default** to restore the Omarchy artwork and a 150-second timeout.
 - Use **Cancel** to close the panel without changing settings.
+- Use **Uninstall** in the panel’s top-right corner, then **Yes, remove**, to remove this plugin through Omarchy. **Keep** cancels the removal.
 
 When the stock artwork is active, the text field shows “Omarchy.”
 
