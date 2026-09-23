@@ -101,11 +101,26 @@ class ScreensaverTextTests(unittest.TestCase):
             module.schedule_uninstall()
         run.assert_called_once_with(
             ["systemd-run", "--user", "--collect", "--on-active=2s",
-             module.shutil.which("omarchy"), "plugin", "remove", "pljack.oai-plugin", "--yes"],
+             module.sys.executable, str(Path(module.__file__).resolve()), "--perform-uninstall"],
             check=True,
         )
         self.assertTrue(self.shell.exists())
         self.assertEqual(json.loads(self.shell.read_text()), self.original)
+
+    def test_uninstall_removes_then_restarts_shell(self):
+        with patch.object(module.subprocess, "run") as run:
+            module.perform_uninstall()
+        self.assertEqual([call.args[0] for call in run.call_args_list], [
+            [module.shutil.which("omarchy"), "plugin", "remove", "pljack.oai-plugin", "--yes"],
+            [module.shutil.which("omarchy"), "restart", "shell"],
+        ])
+        self.assertTrue(all(call.kwargs.get("check") for call in run.call_args_list))
+
+    def test_scheduled_uninstall_cli_dispatches_without_requiring_config(self):
+        with patch.object(module.sys, "argv", ["screensaver_text.py", "--perform-uninstall"]), \
+             patch.object(module, "perform_uninstall") as perform:
+            self.assertEqual(module.main(), 0)
+        perform.assert_called_once_with()
 
     def test_uninstall_control_requires_confirmation_and_reports_errors(self):
         panel = Path(__file__).with_name("Panel.qml").read_text()
