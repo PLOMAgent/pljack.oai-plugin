@@ -35,6 +35,7 @@ Panel {
     editText = ""
     loadProcess.running = true
     timeoutProcess.running = true
+    dependencyProcess.running = true
     controller.show()
   }
 
@@ -106,9 +107,20 @@ Panel {
   }
 
   Process {
+    id: dependencyProcess
+    command: ["python3", Quickshell.env("HOME") + "/.config/omarchy/plugins/pljack.oai-plugin/screensaver_text.py", "--check-figlet"]
+    onExited: function(exitCode) {
+      if (exitCode === 3) root.errorMessage = "figlet is missing. Install with: omarchy pkg add figlet"
+      else if (exitCode === 4) root.errorMessage = "Bundled screensaver font is missing. Reinstall or update the plugin."
+    }
+  }
+
+  Process {
     id: saveProcess
     onExited: function(exitCode) {
       if (exitCode === 0) root.close()
+      else if (exitCode === 3) root.errorMessage = "figlet is missing. Install with: omarchy pkg add figlet"
+      else if (exitCode === 4) root.errorMessage = "Bundled screensaver font is missing. Reinstall or update the plugin."
       else root.errorMessage = "Could not save or launch the screensaver."
     }
   }
@@ -322,6 +334,7 @@ Panel {
       Text {
         Layout.fillWidth: true
         text: root.errorMessage
+        wrapMode: Text.WordWrap
         color: Color.accent
         visible: root.errorMessage !== ""
         font.family: root.contentFontFamily

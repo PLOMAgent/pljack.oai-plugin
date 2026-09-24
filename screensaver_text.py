@@ -9,6 +9,28 @@ import sys
 import tempfile
 from pathlib import Path
 
+FONT_PATH = Path(__file__).resolve().parent / "fonts/ansi-regular.flf"
+
+
+class MissingFiglet(OSError):
+    """The figlet executable is unavailable."""
+
+
+class MissingFont(OSError):
+    """The plugin's bundled font is missing or unusable."""
+
+
+def check_figlet() -> None:
+    if not shutil.which("figlet"):
+        raise MissingFiglet("figlet is missing. Install it with: omarchy pkg add figlet")
+    if not FONT_PATH.is_file():
+        raise MissingFont("Bundled screensaver font is missing. Reinstall or update the plugin.")
+    try:
+        subprocess.run(["figlet", "-f", str(FONT_PATH)], input="A\n", text=True,
+                       capture_output=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise MissingFont("Bundled screensaver font is unusable. Reinstall or update the plugin.") from error
+
 
 def read_current_text(config: Path, branding: Path, default_logo: Path) -> str:
     if branding.exists() and default_logo.exists() and branding.read_bytes() == default_logo.read_bytes():
@@ -96,9 +118,10 @@ def save(text: str, config: Path, branding: Path, shell_config: Path,
     if seconds >= lock_seconds:
         raise ValueError("Screensaver must start before the lock timeout")
 
+    check_figlet()
     # Send text via stdin, not a shell command or a figlet option.
     artwork = subprocess.run(
-        ["figlet", "-f", "ansi-regular"],
+        ["figlet", "-f", str(FONT_PATH)],
         input=text + "\n",
         text=True,
         capture_output=True,
@@ -137,13 +160,15 @@ def restore_default(config: Path, shell_config: Path, *, preview: bool = True,
 
 def main() -> int:
     if len(sys.argv) not in (2, 3):
-        print("Usage: screensaver_text.py TEXT SECONDS|--restore|--read-text|--read-timeouts|--uninstall|--perform-uninstall", file=sys.stderr)
+        print("Usage: screensaver_text.py TEXT SECONDS|--check-figlet|--restore|--read-text|--read-timeouts|--uninstall|--perform-uninstall", file=sys.stderr)
         return 2
     home = Path.home()
     config_dir = home / ".config/omarchy"
     shell_config = config_dir / "shell.json"
     try:
-        if sys.argv[1] == "--restore" and len(sys.argv) == 2:
+        if sys.argv[1] == "--check-figlet" and len(sys.argv) == 2:
+            check_figlet()
+        elif sys.argv[1] == "--restore" and len(sys.argv) == 2:
             restore_default(config_dir / "screensaver-text.json", shell_config)
         elif sys.argv[1] == "--read-text" and len(sys.argv) == 2:
             logo = Path(os.environ.get("OMARCHY_PATH", "/usr/share/omarchy")) / "logo.txt"
@@ -166,6 +191,12 @@ def main() -> int:
             )
         else:
             raise ValueError("Specify both text and seconds")
+    except MissingFiglet as error:
+        print(f"Screensaver change failed: {error}", file=sys.stderr)
+        return 3
+    except MissingFont as error:
+        print(f"Screensaver change failed: {error}", file=sys.stderr)
+        return 4
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(f"Screensaver change failed: {error}", file=sys.stderr)
         return 1

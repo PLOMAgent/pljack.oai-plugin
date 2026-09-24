@@ -14,7 +14,9 @@ When the stock artwork is active, the text field shows “Omarchy.”
 
 ## Requirements
 
-Omarchy shell with bar-widget plugin support, Python 3, `figlet` with the `ansi-regular` font, `systemd-run --user`, and the Omarchy screensaver commands. No third-party Python packages are required.
+Omarchy shell with bar-widget plugin support, Python 3, `figlet`, `systemd-run --user`, and the Omarchy screensaver commands. No third-party Python packages are required. The `ansi-regular` font is bundled in `fonts/`; the Arch `figlet` package alone does not include it.
+
+Install the system executable with `omarchy pkg add figlet` before saving custom artwork. The panel checks for it when opened and shows this command if the executable is missing; if the bundled font is missing, it instead asks you to reinstall or update the plugin. It does not install packages automatically.
 
 ## Install
 

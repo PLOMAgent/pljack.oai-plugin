@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -60,6 +61,49 @@ class ScreensaverTextTests(unittest.TestCase):
         self.assertEqual(labels, "≈ 2.5 minutes|≈ 0.25 minutes|≈ 1 minute|")
         self.assertLess(panel.index("minutesLabel(root.secondsText)"), panel.index("text: root.errorMessage"))
 
+    def test_bundled_font_renders_artwork_without_system_font(self):
+        with patch.object(module.shutil, "which", return_value="/usr/bin/figlet"):
+            module.save("Test", self.config, self.branding, self.shell, "240", launch=False)
+        self.assertIn("█", self.branding.read_text())
+        self.assertEqual(json.loads(self.config.read_text())["text"], "Test")
+
+    def test_missing_bundled_font_reports_plugin_install_problem(self):
+        with patch.object(module.shutil, "which", return_value="/usr/bin/figlet"), \
+             patch.object(module, "FONT_PATH", self.base / "missing.flf"):
+            with self.assertRaises(module.MissingFont) as caught:
+                module.save("hello", self.config, self.branding, self.shell, "240", launch=False)
+        self.assertIn("plugin", str(caught.exception).lower())
+        self.assertNotIn("pkg add figlet", str(caught.exception))
+        self.assertFalse(self.config.exists())
+        self.assertFalse(self.branding.exists())
+
+    def test_missing_figlet_reports_install_command_without_changing_files(self):
+        with patch.object(module.shutil, "which", return_value=None):
+            with self.assertRaises(module.MissingFiglet) as caught:
+                module.save("hello", self.config, self.branding, self.shell, "240", launch=False)
+        self.assertIn("omarchy pkg add figlet", str(caught.exception))
+        self.assertFalse(self.config.exists())
+        self.assertFalse(self.branding.exists())
+        self.assertEqual(json.loads(self.shell.read_text()), self.original)
+
+    def test_panel_checks_dependency_on_open_and_reports_it_on_save(self):
+        panel = Path(__file__).with_name("Panel.qml").read_text()
+        self.assertIn("dependencyProcess.running = true", panel)
+        self.assertIn('"--check-figlet"', panel)
+        self.assertIn("if (exitCode === 3)", panel)
+        self.assertIn("if (exitCode === 4)", panel)
+        self.assertIn("Bundled screensaver font", panel)
+        self.assertIn("omarchy pkg add figlet", panel)
+        self.assertIn("wrapMode: Text.WordWrap", panel[panel.index('text: root.errorMessage'):])
+
+    def test_check_figlet_cli_exits_with_distinct_status(self):
+        with patch.object(module.sys, "argv", ["screensaver_text.py", "--check-figlet"]), \
+             patch.object(module.shutil, "which", return_value=None), \
+             patch("sys.stderr") as stderr:
+            self.assertEqual(module.main(), 3)
+            self.assertIn("omarchy pkg add figlet", str(stderr.write.call_args_list))
+
+    @unittest.skipUnless(shutil.which("figlet"), "requires figlet and ansi-regular font")
     def test_save_preserves_unrelated_shell_config_and_artwork(self):
         text = "It's $HOME; wow!"
         module.save(text, self.config, self.branding, self.shell, "240", launch=False)
@@ -79,6 +123,7 @@ class ScreensaverTextTests(unittest.TestCase):
                 self.assertFalse(self.branding.exists())
                 self.assertEqual(json.loads(self.shell.read_text()), self.original)
 
+    @unittest.skipUnless(shutil.which("figlet"), "requires figlet and ansi-regular font")
     def test_save_schedules_shell_restart_after_timeout_change(self):
         real_run = subprocess.run
         seen = []
